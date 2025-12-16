@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>CONTROL DE RIEGO</title>
+  <title>SISTEMA DE RIEGO DE HUERTA</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -144,7 +144,7 @@
 </head>
 <body>
 
-  <h1>SISTEMA CONTROL DE RIEGO</h1>
+  <h1>SISTEMA DE RIEGO POR SECTORES</h1>
 
   <!-- Login form -->
   <div id="loginForm">
@@ -155,73 +155,58 @@
 
   <!-- Dashboard -->
   <div id="dashboard">
-    <div class="relay-container">
-      <div class="relay-card">
-        <h2>Relay 1</h2>
-        <p>Status: <span id="status1">Loading...</span></p>
-        <button id="btn1">Toggle</button>
+      <div class="relay-container">
+          <div class="relay-card">
+              <h2>Relay 1</h2>
+              <p>Status: <span id="status1">Loading...</span></p>
+              <button id="btn1">Toggle</button>
+          </div>
+
+          <div class="relay-card">
+              <h2>Relay 2</h2>
+              <p>Status: <span id="status2">Loading...</span></p>
+              <button id="btn2">Toggle</button>
+          </div>
+
+          <div class="relay-card">
+              <h2>Relay 3</h2>
+              <p>Status: <span id="status3">Loading...</span></p>
+              <button id="btn3">Toggle</button>
+          </div>
+
+          <div class="relay-card">
+              <h2>Relay 4</h2>
+              <p>Status: <span id="status4">Loading...</span></p>
+              <button id="btn4">Toggle</button>
+          </div>
+          <div class="relay-card">
+              <h2>Relay 5</h2>
+              <p>Status: <span id="status4">Loading...</span></p>
+              <button id="btn5">Toggle</button>
+          </div>
+          <div class="relay-card">
+              <h2>Relay 6</h2>
+              <p>Status: <span id="status4">Loading...</span></p>
+              <button id="btn6">Toggle</button>
+          </div>
+          <div class="relay-card">
+              <h2>Relay 7</h2>
+              <p>Status: <span id="status4">Loading...</span></p>
+              <button id="btn7">Toggle</button>
+          </div>
+          <div class="relay-card">
+              <h2>Relay 8</h2>
+              <p>Status: <span id="status4">Loading...</span></p>
+              <button id="btn8">Toggle</button>
+          </div>
       </div>
-
-      <div class="relay-card">
-        <h2>Relay 2</h2>
-        <p>Status: <span id="status2">Loading...</span></p>
-        <button id="btn2">Toggle</button>
-      </div>
-
-      <div class="relay-card">
-        <h2>Relay 3</h2>
-        <p>Status: <span id="status3">Loading...</span></p>
-        <button id="btn3">Toggle</button>
-      </div>
-
-      <div class="relay-card">
-        <h2>Relay 4</h2>
-        <p>Status: <span id="status4">Loading...</span></p>
-        <button id="btn4">Toggle</button>
-      </div>
-    </div>
-
-
-      <div class="relay-card">
-        <h2>Relay 5</h2>
-        <p>Status: <span id="status5">Loading...</span></p>
-        <button id="btn5">Toggle</button>
-      </div>
-    </div>
-
-
-      <div class="relay-card">
-        <h2>Relay 6</h2>
-        <p>Status: <span id="status6">Loading...</span></p>
-        <button id="btn6">Toggle</button>
-      </div>
-    </div>
-
-
-
-      <div class="relay-card">
-        <h2>Relay 7</h2>
-        <p>Status: <span id="status7">Loading...</span></p>
-        <button id="btn7">Toggle</button>
-      </div>
-    </div>
-
-
-      <div class="relay-card">
-        <h2>Relay 8</h2>
-        <p>Status: <span id="status8">Loading...</span></p>
-        <button id="btn8">Toggle</button>
-      </div>
-    </div>
-
-
 
     <button id="allOffBtn">All OFF</button>
     <button id="logoutBtn">Logout</button>
   </div>
 
   <footer>
-    Created by Tech StudyCell
+    Desarrolado  po JAvI
   </footer>
 
   <!-- Firebase SDKs -->
@@ -232,13 +217,13 @@
   <script>
     // Firebase config
     const firebaseConfig = {
-	   apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
-           authDomain: "riego-huerta.firebaseapp.com",
-           databaseURL: "https://riego-huerta-default-rtdb.europe-west1.firebasedatabase.app",
-           projectId: "riego-huerta",
-          storageBucket: "riego-huerta.firebasestorage.app",
-          messagingSenderId: "153931971594",
-          appId: "1:153931971594:web:4c385921df852541c7f3f3"
+	  apiKey: "AIzaSyCQc3bGCWYMrWNNNxyPER7hiWWWq0CSwPP",
+	  authDomain: "nodemcu-relay-02.firebaseapp.com",
+	  databaseURL: "https://nodemcu-relay-02-default-rtdb.firebaseio.com",
+	  projectId: "nodemcu-relay-03",
+	  storageBucket: "nodemcu-relay-02.firebasestorage.app",
+	  messagingSenderId: "573546025557",
+	  appId: "1:583546025557:web:e52002c52b86267bd58888"
 	};
 
     firebase.initializeApp(firebaseConfig);
@@ -275,12 +260,7 @@
         { id: 1, path: "relay1" },
         { id: 2, path: "relay2" },
         { id: 3, path: "relay3" },
-        { id: 4, path: "relay4" }, 
-        { id: 5, path: "relay5" },
-        { id: 6, path: "relay6" },
-        { id: 7, path: "relay7" },
-        { id: 8, path: "relay8" },
-
+        { id: 4, path: "relay4" },
       ];
 
       relays.forEach(relay => {
@@ -323,3 +303,4 @@
   </script>
 </body>
 </html>
+
