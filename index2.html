@@ -24,23 +24,7 @@
     const loginForm = document.getElementById('login-form');
 
     // Función para iniciar sesión
-    function login() {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('pass').value;
-        auth.signInWithEmailAndPassword(email, pass).catch(e => alert(e.message));
-    }
-
-    // Observador de estado de sesión
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            loginForm.style.display = 'none';
-            container.style.display = 'grid';
-            iniciarApp(); // Solo carga los datos si está logueado
-        } else {
-            loginForm.style.display = 'block';
-            container.style.display = 'none';
-        }
-    });
+    
 
     function iniciarApp() {
         // Generar botones (si no existen)
@@ -55,7 +39,32 @@
         }
 
         // Escuchar cambios
-        db.ref('reles').on('value', (snapshot) => {
+    firebase.initializeApp(firebaseConfig);
+
+    const loginForm = document.getElementById("loginForm");
+    const dashboard = document.getElementById("dashboard");
+    const loginBtn = document.getElementById("loginBtn");
+
+    loginBtn.addEventListener("click", () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        alert("Please enter email and password.");
+        return;
+      }
+
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          console.log("Signed in as", userCredential.user.email);
+          loginForm.style.display = "none";
+          dashboard.style.display = "block";
+          startRelayControl();
+        })
+        .catch(error => {
+          alert("Login failed: " + error.message);
+        });
+    });    db.ref('reles').on('value', (snapshot) => {
             const data = snapshot.val();
             if(!data) return;
             for (let i = 1; i <= 8; i++) {
