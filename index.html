@@ -40,4 +40,94 @@
         .regando { background-color: var(--green) !important; box-shadow: 0 0 10px rgba(76, 175, 80, 0.4); }
 
         input[type="number"] { width: 70px; padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; }
-        .stop-all { background: var(--red); width: 100%; padding: 15px; border-radius: 10px; color: white; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top:
+        .stop-all { background: var(--red); width: 100%; padding: 15px; border-radius: 10px; color: white; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; }
+        .stop-all:active { transform: scale(0.98); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🌿 Sistema de Riego</h1>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Tiempo de riego (min):</span>
+                <input type="number" id="tiempoInput" value="0" onchange="updateTime(this.value)">
+            </div>
+        </div>
+
+        <div class="card" id="relays-list">
+            </div>
+
+        <button class="stop-all" onclick="emergencyStop()">🛑 PARAR TODO</button>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN FIREBASE
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            databaseURL: "TU_URL_DATABASE",
+            projectId: "TU_PROJECT_ID"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Generar botones para los 7 relés
+        const list = document.getElementById('relays-list');
+        for (let i = 1; i <= 7; i++) {
+            list.innerHTML += `
+                <div class="relay-control">
+                    <span>Válvula Sector ${i}</span>
+                    <button id="btn${i}" class="btn-action" onclick="activateRelay(${i})">
+                        APAGADO
+                    </button>
+                </div>
+            `;
+        }
+
+        // --- FUNCIONES ---
+
+        function activateRelay(id) {
+            const btn = document.getElementById(`btn${id}`);
+            // Cambiar a Naranja inmediatamente al hacer clic
+            btn.classList.add('enviando');
+            btn.innerText = "ENVIANDO...";
+            
+            // Enviar señal a Firebase
+            db.ref(`/relay${id}`).set(true);
+        }
+
+        function updateTime(val) {
+            db.ref('/tiempo').set(parseInt(val));
+        }
+
+        function emergencyStop() {
+            db.ref('/stop').set(true);
+            setTimeout(() => db.ref('/stop').set(false), 2000);
+        }
+
+        // --- ESCUCHA DE CAMBIOS REALES ---
+
+        // Escuchar el tiempo global
+        db.ref('/tiempo').on('value', s => document.getElementById('tiempoInput').value = s.val() || 0);
+
+        // Escuchar cada /ordenX para cambiar a VERDE
+        for (let i = 1; i <= 7; i++) {
+            db.ref(`/orden${i}`).on('value', (snapshot) => {
+                const isRunning = snapshot.val();
+                const btn = document.getElementById(`btn${i}`);
+
+                if (isRunning) {
+                    btn.classList.remove('enviando');
+                    btn.classList.add('regando');
+                    btn.innerText = "REGANDO";
+                } else {
+                    btn.classList.remove('enviando', 'regando');
+                    btn.innerText = "APAGADO";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
