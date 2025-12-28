@@ -1,177 +1,197 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Riego Seguro</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <style>
-        :root {
-            --bg: #f0f2f5;
-            --card: #ffffff;
-            --primary: #1a73e8;
-            --orange: #ff9800;
-            --green: #4caf50;
-            --gray: #757575;
-            --red: #d32f2f;
-        }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: var(--card); border-radius: 12px; padding: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); width: 100%; max-width: 420px; box-sizing: border-box; }
-        
-        /* Estilos de Login */
-        .login-header { text-align: center; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-        .btn-login { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+  <meta charset="UTF-8" />
+  <title>SISTEMA DE RIEGO DE HUERTA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --primary: #1e88e5;
+      --waiting: #ff9800; /* Naranja para "Enviando" */
+      --active: #4caf50;  /* Verde para "Regando" */
+      --off: #1565c0;     /* Azul para "Apagado" */
+      --stop: #d32f2f;
+    }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f7f6;
+      margin: 0;
+      padding: 0 10px 40px;
+    }
+    h1 { margin-top: 30px; font-size: 1.8rem; color: #333; }
+    
+    /* Configuración de Tiempo */
+    .config-card {
+      background: white; max-width: 400px; margin: 20px auto;
+      padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      display: flex; justify-content: space-around; align-items: center;
+    }
+    .config-card input { width: 60px; padding: 8px; border-radius: 8px; border: 1px solid #ddd; }
 
-        /* Estilos del Panel (Oculto inicialmente) */
-        #admin-panel { display: none; width: 100%; max-width: 500px; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .logout-link { color: var(--red); cursor: pointer; font-size: 0.9rem; font-weight: bold; text-decoration: none; }
-        
-        .relay-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .btn-action { width: 140px; padding: 10px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; background: var(--gray); transition: 0.3s; }
-        
-        /* Colores de estado */
-        .waiting { background-color: var(--orange) !important; }
-        .active { background-color: var(--green) !important; box-shadow: 0 0 8px rgba(76,175,80,0.4); }
+    .relay-container {
+      max-width: 1000px; margin: 20px auto;
+      display: flex; flex-wrap: wrap; justify-content: center;
+    }
+    .relay-card {
+      background-color: white; padding: 20px; margin: 10px;
+      border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      width: 200px;
+    }
+    .relay-card h2 { margin: 0 0 10px; font-size: 1.2rem; }
+    .relay-card p { font-size: 0.9rem; color: #666; margin-bottom: 15px; }
+    
+    .btn-relay {
+      padding: 12px; border: none; border-radius: 10px; color: white;
+      background-color: var(--off); cursor: pointer; font-weight: bold;
+      width: 100%; transition: all 0.3s ease;
+    }
 
-        .stop-btn { background: var(--red); color: white; width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-    </style>
+    /* Clases dinámicas */
+    .enviando { background-color: var(--waiting) !important; }
+    .regando { background-color: var(--active) !important; }
+
+    #loginForm {
+      max-width: 350px; margin: 80px auto; background: white;
+      padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    #loginForm input {
+      width: 100%; padding: 12px; margin: 10px 0;
+      border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box;
+    }
+    #loginForm button {
+      width: 100%; background-color: var(--primary); color: white;
+      padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-size: 1rem;
+    }
+
+    #dashboard { display: none; }
+    #allOffBtn { background-color: var(--stop); color: white; border: none; padding: 15px 30px; border-radius: 10px; cursor: pointer; margin: 20px auto; display: block; font-weight: bold; }
+    #logoutBtn { background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; margin-top: 20px; }
+    
+    footer { margin-top: 40px; color: #888; font-size: 0.8rem; }
+  </style>
 </head>
 <body>
 
-    <div id="auth-section" class="card">
-        <div class="login-header">
-            <h2>🔒 Acceso al Riego</h2>
-            <p>Introduce tus credenciales</p>
-        </div>
-        <input type="email" id="email" placeholder="Correo electrónico">
-        <input type="password" id="password" placeholder="Contraseña">
-        <button class="btn-login" onclick="login()">ENTRAR</button>
-        <p id="error-msg" style="color: red; text-align: center; font-size: 0.8rem;"></p>
+  <h1>SISTEMA DE RIEGO POR SECTORES</h1>
+
+  <div id="loginForm">
+    <h2>Entrada Segura</h2>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Contraseña" required />
+    <button id="loginBtn">Iniciar Sesión</button>
+  </div>
+
+  <div id="dashboard">
+    <div class="config-card">
+      <span>⏱️ Tiempo de Riego (min):</span>
+      <input type="number" id="tiempoInput" value="0">
     </div>
 
-    <div id="admin-panel">
-        <div class="card">
-            <div class="panel-header">
-                <strong>Configuración General</strong>
-                <a class="logout-link" onclick="logout()">Cerrar Sesión 🚪</a>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Tiempo de Riego (min):</span>
-                <input type="number" id="tiempoInput" style="width: 80px;" onchange="updateTime(this.value)">
-            </div>
-        </div>
+    <div class="relay-container" id="container">
+      </div>
 
-        <div class="card" style="margin-top: 20px;">
-            <h3 style="margin-top: 0;">Sectores de Riego</h3>
-            <div id="relays-container"></div>
-            <button class="stop-btn" onclick="emergencyStop()">🛑 PARADA DE EMERGENCIA</button>
-        </div>
-    </div>
+    <button id="allOffBtn">🛑 PARADA DE EMERGENCIA</button>
+    <button id="logoutBtn">Cerrar Sesión</button>
+  </div>
 
-    <script>
-        // --- CONFIGURACIÓN FIREBASE (Copia tus datos aquí) ---
-        const firebaseConfig = {
+  <footer>Desarrollado por Javi & Gemini</footer>
+
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
            apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
            authDomain: "riego-huerta.firebaseapp.com",
            databaseURL: "https://riego-huerta-default-rtdb.europe-west1.firebasedatabase.app",
            projectId: "riego-huerta",
           storageBucket: "riego-huerta.firebasestorage.app",
           messagingSenderId: "153931971594",
-          appId: "1:153931971594:web:4c385921df852541c7f3f3""
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.database();
+          appId: "1:153931971594:web:4c385921df852541c7f3f3"
+    };
 
-        // 1. Lógica de Autenticación
-        function login() {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            auth.signInWithEmailAndPassword(email, pass).catch(err => {
-                document.getElementById('error-msg').innerText = "Error: " + err.message;
-            });
-        }
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
 
-        function logout() {
-            auth.signOut();
-        }
+    // Persistencia de sesión
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+        startRiegoControl();
+      } else {
+        document.getElementById("loginForm").style.display = "block";
+        document.getElementById("dashboard").style.display = "none";
+      }
+    });
 
-        // Observador de Sesión
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById('auth-section').style.display = 'none';
-                document.getElementById('admin-panel').style.display = 'block';
-                iniciarSincronizacion();
-            } else {
-                document.getElementById('auth-section').style.display = 'block';
-                document.getElementById('admin-panel').style.display = 'none';
-                detenerSincronizacion();
-            }
+    // Login
+    document.getElementById("loginBtn").onclick = () => {
+      const email = document.getElementById("email").value;
+      const pass = document.getElementById("password").value;
+      auth.signInWithEmailAndPassword(email, pass).catch(err => alert(err.message));
+    };
+
+    function startRiegoControl() {
+      const container = document.getElementById("container");
+      container.innerHTML = ""; // Limpiar
+
+      // Sincronizar Tiempo
+      const tiempoInput = document.getElementById("tiempoInput");
+      db.ref("/tiempo").on("value", s => tiempoInput.value = s.val() || 0);
+      tiempoInput.onchange = () => db.ref("/tiempo").set(parseInt(tiempoInput.value));
+
+      // Generar 7 Sectores
+      for (let i = 1; i <= 7; i++) {
+        container.innerHTML += `
+          <div class="relay-card">
+            <h2>Sector ${i}</h2>
+            <p id="txt${i}">Estado: OFF</p>
+            <button class="btn-relay" id="btn${i}" onclick="toggleRelay(${i})">ACTIVAR</button>
+          </div>
+        `;
+
+        // Escuchar cambios de "orden" (Confirmación del NodeMCU)
+        db.ref(`/orden${i}`).on("value", snap => {
+          const isActive = snap.val();
+          const btn = document.getElementById(`btn${i}`);
+          const txt = document.getElementById(`txt${i}`);
+          
+          if (isActive) {
+            btn.classList.remove("enviando");
+            btn.classList.add("regando");
+            btn.innerText = "REGANDO...";
+            txt.innerText = "Estado: ON";
+          } else {
+            btn.classList.remove("enviando", "regando");
+            btn.innerText = "ACTIVAR";
+            txt.innerText = "Estado: OFF";
+          }
         });
+      }
+    }
 
-        // 2. Crear botones de relés
-        const container = document.getElementById('relays-container');
-        for (let i = 1; i <= 7; i++) {
-            container.innerHTML += `
-                <div class="relay-item">
-                    <span>Sector ${i}</span>
-                    <button id="btn${i}" class="btn-action" onclick="activateRelay(${i})">APAGADO</button>
-                </div>
-            `;
-        }
+    function toggleRelay(id) {
+      const btn = document.getElementById(`btn${id}`);
+      // Efecto Naranja inmediato
+      btn.classList.add("enviando");
+      btn.innerText = "ENVIANDO...";
+      
+      // Enviar pulso a /relayX
+      db.ref(`/relay${id}`).set(true);
+    }
 
-        // 3. Funciones de Control
-        function activateRelay(id) {
-            const btn = document.getElementById(`btn${id}`);
-            btn.classList.add('waiting');
-            btn.innerText = "ENVIANDO...";
-            db.ref(`/relay${id}`).set(true);
-        }
+    // Stop General
+    document.getElementById("allOffBtn").onclick = () => {
+      db.ref("/stop").set(true);
+      setTimeout(() => db.ref("/stop").set(false), 2000);
+    };
 
-        function updateTime(val) {
-            db.ref('/tiempo').set(parseInt(val));
-        }
-
-        function emergencyStop() {
-            db.ref('/stop').set(true);
-            setTimeout(() => db.ref('/stop').set(false), 2000);
-        }
-
-        // 4. Sincronización en tiempo real
-        let listeners = [];
-        function iniciarSincronizacion() {
-            // Sincronizar Tiempo
-            const tRef = db.ref('/tiempo');
-            tRef.on('value', s => document.getElementById('tiempoInput').value = s.val() || 0);
-            listeners.push(tRef);
-
-            // Sincronizar Botones
-            for (let i = 1; i <= 7; i++) {
-                const oRef = db.ref(`/orden${i}`);
-                oRef.on('value', snap => {
-                    const btn = document.getElementById(`btn${i}`);
-                    if (snap.val()) {
-                        btn.classList.remove('waiting');
-                        btn.classList.add('active');
-                        btn.innerText = "REGANDO";
-                    } else {
-                        btn.classList.remove('waiting', 'active');
-                        btn.innerText = "APAGADO";
-                    }
-                });
-                listeners.push(oRef);
-            }
-        }
-
-        function detenerSincronizacion() {
-            listeners.forEach(ref => ref.off());
-            listeners = [];
-        }
-    </script>
+    // Logout
+    document.getElementById("logoutBtn").onclick = () => auth.signOut();
+  </script>
 </body>
 </html>
