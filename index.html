@@ -1,136 +1,43 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Riego Pro</title>
+    <title>Panel de Riego Profesional</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         :root {
-            --bg-color: #f4f7f6;
-            --card-bg: #ffffff;
-            --primary: #2196F3;
-            --waiting: #ff9800; /* Naranja */
-            --active: #4CAF50;  /* Verde */
-            --off: #757575;     /* Gris */
+            --bg: #eef2f3;
+            --card: #ffffff;
+            --text: #333;
+            --gray: #8e9eab;
+            --orange: #ff9800;
+            --green: #4caf50;
+            --red: #f44336;
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: var(--card-bg); padding: 25px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); width: 100%; max-width: 450px; margin-bottom: 20px; }
-        h2 { margin-top: 0; color: #333; font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { width: 100%; max-width: 500px; }
+        .card { background: var(--card); border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 20px; color: #2c3e50; }
         
-        .relay-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 20px; }
-        
-        .relay-btn {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 20px; border: none; border-radius: 10px;
-            background: var(--off); color: white; font-weight: bold;
-            cursor: pointer; transition: all 0.3s ease;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+        /* Estilo de los controles de relé */
+        .relay-control { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 12px; border-bottom: 1px solid #eee; 
+        }
+        .relay-control:last-child { border-bottom: none; }
+
+        .btn-action {
+            width: 140px; padding: 12px; border: none; border-radius: 8px;
+            color: white; font-weight: bold; cursor: pointer;
+            transition: all 0.3s ease; text-transform: uppercase;
+            background-color: var(--gray); /* Color inicial Gris */
         }
 
-        /* Clases de estado */
-        .btn-waiting { background-color: var(--waiting) !important; transform: translateY(2px); box-shadow: none; }
-        .btn-active { background-color: var(--active) !important; }
-        
-        input[type="number"] { width: 80px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; }
-        .btn-stop { background: #d32f2f; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 1rem; }
-    </style>
-</head>
-<body>
+        /* Estados de color */
+        .enviando { background-color: var(--orange) !important; }
+        .regando { background-color: var(--green) !important; box-shadow: 0 0 10px rgba(76, 175, 80, 0.4); }
 
-    <div class="card">
-        <h2>⏱️ Configuración de Tiempo</h2>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Duración (minutos):</span>
-            <input type="number" id="tiempoInput" value="0" onchange="actualizarTiempo(this.value)">
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>💧 Control de Válvulas</h2>
-        <div class="relay-grid" id="relayContainer"></div>
-        <button class="btn-stop" onclick="emergenciaStop()">🛑 PARADA TOTAL</button>
-    </div>
-
-    <script>
-        // CONFIGURACIÓN DE FIREBASE
-        const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            databaseURL: "TU_URL_DATABASE",
-            projectId: "TU_PROJECT_ID"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        // Generar botones de relé
-        const container = document.getElementById('relayContainer');
-        for (let i = 1; i <= 7; i++) {
-            container.innerHTML += `
-                <button id="btnRelay${i}" class="relay-btn" onclick="enviarOrden(${i})">
-                    <span>Válvula ${i}</span>
-                    <span id="label${i}">APAGADO</span>
-                </button>
-            `;
-        }
-
-        // --- LÓGICA DE CONTROL ---
-
-        function enviarOrden(id) {
-            const btn = document.getElementById(`btnRelay${id}`);
-            // 1. Efecto inmediato: Naranja (Enviando...)
-            btn.classList.add('btn-waiting');
-            document.getElementById(`label${id}`).innerText = "ENVIANDO...";
-            
-            // 2. Escribir en Firebase el trigger
-            db.ref('/relay' + id).set(true);
-        }
-
-        function actualizarTiempo(val) {
-            db.ref('/tiempo').set(parseInt(val));
-        }
-
-        function emergenciaStop() {
-            db.ref('/stop').set(true);
-            setTimeout(() => db.ref('/stop').set(false), 2000);
-        }
-
-        // --- ESCUCHA DE ESTADOS (Sincronización) ---
-
-        for (let i = 1; i <= 7; i++) {
-            // Escuchar el nodo /ordenX que maneja el NodeMCU
-            db.ref('/orden' + i).on('value', (snap) => {
-                const activo = snap.val();
-                const btn = document.getElementById(`btnRelay${i}`);
-                const label = document.getElementById(`label${i}`);
-
-                if (activo) {
-                    // 3. Si el hardware confirma (verde)
-                    btn.classList.remove('btn-waiting');
-                    btn.classList.add('btn-active');
-                    label.innerText = "REGANDO";
-                } else {
-                    // 4. Si el hardware apaga (gris)
-                    btn.classList.remove('btn-waiting', 'btn-active');
-                    label.innerText = "APAGADO";
-                }
-            });
-
-            // Sincronizar si alguien apaga el trigger manualmente o por tiempo
-            db.ref('/relay' + i).on('value', (snap) => {
-                if(snap.val() === false) {
-                    // Si el trigger es false, nos aseguramos de quitar el naranja
-                    document.getElementById(`btnRelay${i}`).classList.remove('btn-waiting');
-                }
-            });
-        }
-
-        // Sincronizar campo de tiempo
-        db.ref('/tiempo').on('value', snap => {
-            document.getElementById('tiempoInput').value = snap.val() || 0;
-        });
-    </script>
-</body>
-</html>
+        input[type="number"] { width: 70px; padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; }
+        .stop-all { background: var(--red); width: 100%; padding: 15px; border-radius: 10px; color: white; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top:
