@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Control de Riego Inteligente</title>
+  <title>Control de Riego - Huerta</title>
   
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
@@ -11,119 +11,113 @@
 
   <style>
     :root {
-      --primary: #1e88e5;
-      --waiting: #ff9800; /* Naranja (Enviando orden) */
-      --active: #4caf50;  /* Verde (Hardware regando) */
-      --off: #546e7a;     /* Gris azulado (Apagado) */
-      --stop: #d32f2f;
-      --bg: #e8f5e9;     /* verde claro
+      --primary: #2e7d32;      /* Verde bosque */
+      --waiting: #ff9800;      /* Naranja */
+      --active: #4caf50;       /* Verde riego */
+      --off: #78909c;          /* Gris azulado */
+      --stop: #c62828;         /* Rojo */
+      --bg: #e8f5e9;           /* VERDE CLARO (Fondo) */
+      --card: #ffffff;
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Segoe UI', Arial, sans-serif;
       background-color: var(--bg);
       margin: 0; padding: 20px;
       display: flex; flex-direction: column; align-items: center;
     }
 
-    /* --- LOGIN FORM --- */
+    h1 { color: #1b5e20; margin-top: 20px; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+
+    /* --- LOGIN --- */
     #loginForm {
-      background: white; padding: 30px; border-radius: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      background: var(--card); padding: 30px; border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
       width: 100%; max-width: 350px; margin-top: 50px;
-    }
-    #loginForm h2 { margin-top: 0; text-align: center; color: #333; }
-    input[type="email"], input[type="password"] {
-      width: 100%; padding: 12px; margin: 10px 0;
-      border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;
     }
     .btn-login {
       width: 100%; background: var(--primary); color: white;
-      border: none; padding: 12px; border-radius: 10px;
-      cursor: pointer; font-weight: bold; font-size: 1rem;
+      border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-weight: bold;
     }
 
     /* --- DASHBOARD --- */
     #dashboard { display: none; width: 100%; max-width: 900px; }
     
     .header-panel {
-      background: white; padding: 20px; border-radius: 15px;
+      background: var(--card); padding: 20px; border-radius: 15px;
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03);
     }
 
-    .config-box { display: flex; align-items: center; gap: 10px; }
-    .config-box input { width: 60px; padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
+    .config-box input { width: 60px; padding: 8px; border-radius: 8px; border: 1px solid #c8e6c9; text-align: center; }
 
-    .logout-btn { color: var(--stop); cursor: pointer; font-weight: bold; text-decoration: none; }
+    .logout-btn { color: #555; cursor: pointer; font-size: 0.9rem; text-decoration: none; border: 1px solid #ccc; padding: 5px 10px; border-radius: 8px; }
 
     .relay-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 20px; width: 100%;
+      gap: 20px;
     }
 
     .relay-card {
-      background: white; padding: 20px; border-radius: 15px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;
-      transition: transform 0.2s;
+      background: var(--card); padding: 25px; border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04); text-align: center;
     }
-    .relay-card h3 { margin: 0 0 5px 0; color: #444; font-size: 1.1rem; }
-    .relay-card span { font-size: 0.8rem; color: #888; display: block; margin-bottom: 15px; }
+    .relay-card h3 { margin: 0; color: #2e7d32; font-size: 1.2rem; }
+    .relay-card span { color: #999; font-size: 0.75rem; display: block; margin-bottom: 20px; }
 
     .btn-relay {
-      width: 100%; padding: 12px; border: none; border-radius: 10px;
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
       color: white; font-weight: bold; cursor: pointer;
       background-color: var(--off); transition: 0.3s;
     }
 
-    /* Clases de estado dinámico */
+    /* Estados */
     .status-waiting { background-color: var(--waiting) !important; }
-    .status-active { background-color: var(--active) !important; box-shadow: 0 0 12px rgba(76,175,80,0.4); }
+    .status-active { background-color: var(--active) !important; box-shadow: 0 5px 15px rgba(76,175,80,0.3); }
 
-    .footer-actions { margin-top: 30px; width: 100%; text-align: center; }
     .btn-emergency {
       background: var(--stop); color: white; border: none;
-      padding: 15px 40px; border-radius: 12px; font-weight: bold;
-      font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 15px rgba(211,47,47,0.3);
+      padding: 16px 40px; border-radius: 12px; font-weight: bold;
+      font-size: 1.1rem; cursor: pointer; margin-top: 30px;
+      box-shadow: 0 4px 10px rgba(198,40,40,0.2);
     }
     
-    footer { margin-top: 50px; color: #aaa; font-size: 0.8rem; }
+    footer { margin-top: 40px; color: #757575; font-size: 0.8rem; }
   </style>
 </head>
 <body>
 
-  <h1>🌿 Sistema de Huerta Riego</h1>
+  <h1>SISTEMA DE RIEGO HUERTA</h1>
 
   <div id="loginForm">
-    <h2>Acceso Seguro</h2>
-    <input type="email" id="email" placeholder="Correo electrónico" />
-    <input type="password" id="password" placeholder="Contraseña" />
-    <button class="btn-login" id="loginBtn">Entrar al Sistema</button>
+    <h2 style="text-align: center; color: #2e7d32;">Acceso</h2>
+    <input type="email" id="email" placeholder="Email" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:10px; box-sizing:border-box;" />
+    <input type="password" id="password" placeholder="Contraseña" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:10px; box-sizing:border-box;" />
+    <button class="btn-login" id="loginBtn">Entrar</button>
   </div>
 
   <div id="dashboard">
     <div class="header-panel">
       <div class="config-box">
-        <span>⏱️ Tiempo de Riego:</span>
+        <strong>⏱️ Riego:</strong>
         <input type="number" id="tiempoInput" value="0">
-        <small>min</small>
+        <span>min</span>
       </div>
-      <a class="logout-btn" onclick="logout()">Cerrar Sesión 🚪</a>
+      <a class="logout-btn" onclick="logout()">Cerrar Sesión</a>
     </div>
 
-    <div class="relay-grid" id="gridSectores">
-      </div>
+    <div class="relay-grid" id="gridSectores"></div>
 
-    <div class="footer-actions">
+    <div style="text-align:center;">
       <button class="btn-emergency" onclick="emergencyStop()">🛑 PARADA DE EMERGENCIA</button>
     </div>
   </div>
 
-  <footer>Control de Riego por Javi © 2025</footer>
+  <footer>Panel de Control de Huerta © 2025</footer>
 
   <script>
-    // 1. CONFIGURACIÓN FIREBASE (Reemplaza con tus datos reales)
-    const firebaseConfig = {
+    
+    const firebaseConfig = {                                  // 1. CONFIGURACIÓN FIREBASE (Reemplaza con tus datos reales)
       apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
       authDomain: "riego-huerta.firebaseapp.com",
       databaseURL: "https://riego-huerta-default-rtdb.europe-west1.firebasedatabase.app",
@@ -131,7 +125,6 @@
       appId: "1:153931971594:web:4c385921df852541c7f3f3"
     };
 
-    // 2. PERSONALIZA AQUÍ LOS NOMBRES DE TUS SECTORES
     const nombresSectores = {
       1: " Tomates",
       2: " Lechugas",
@@ -142,12 +135,10 @@
       7: "Riego de Rosales"
     };
 
-    // Inicialización
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.database();
 
-    // Gestión de Sesión
     auth.onAuthStateChanged(user => {
       if (user) {
         document.getElementById("loginForm").style.display = "none";
@@ -159,41 +150,34 @@
       }
     });
 
-    // Función Login
     document.getElementById("loginBtn").onclick = () => {
       const email = document.getElementById("email").value;
       const pass = document.getElementById("password").value;
-      auth.signInWithEmailAndPassword(email, pass).catch(err => alert("Error: " + err.message));
+      auth.signInWithEmailAndPassword(email, pass).catch(err => alert(err.message));
     };
 
     function logout() { auth.signOut(); }
 
-    // Función para manejar el Dashboard
     function inicializarDashboard() {
       const grid = document.getElementById("gridSectores");
-      grid.innerHTML = ""; // Limpiar antes de crear
+      grid.innerHTML = "";
 
-      // Sincronizar Tiempo Global
       db.ref("/tiempo").on("value", s => document.getElementById("tiempoInput").value = s.val() || 0);
       document.getElementById("tiempoInput").onchange = (e) => db.ref("/tiempo").set(parseInt(e.target.value));
 
-      // Generar Sectores
       for (let i = 1; i <= 7; i++) {
         const nombre = nombresSectores[i] || `Sector ${i}`;
-        
         grid.innerHTML += `
           <div class="relay-card">
             <h3>${nombre}</h3>
-            <span>ID: Relay ${i}</span>
+            <span>Módulo Relé ${i}</span>
             <button class="btn-relay" id="btn${i}" onclick="activarRelay(${i})">ACTIVAR</button>
           </div>
         `;
 
-        // Escuchar cambios reales del hardware (/ordenX)
         db.ref(`/orden${i}`).on("value", snap => {
           const regando = snap.val();
           const btn = document.getElementById(`btn${i}`);
-          
           if (regando) {
             btn.classList.remove("status-waiting");
             btn.classList.add("status-active");
@@ -207,17 +191,13 @@
     }
 
     function activarRelay(id) {
-      const btn = document.getElementById(`btn${id}`);
-      // Naranja inmediato (Señal enviada)
-      btn.classList.add("status-waiting");
-      btn.innerText = "ENVIANDO...";
-      // Escribir en la base de datos
+      document.getElementById(`btn${id}`).classList.add("status-waiting");
+      document.getElementById(`btn${id}`).innerText = "ENVIANDO...";
       db.ref(`/relay${id}`).set(true);
     }
 
     function emergencyStop() {
       db.ref("/stop").set(true);
-      // Resetear bandera stop tras 2 segundos para permitir volver a usar el sistema
       setTimeout(() => db.ref("/stop").set(false), 2000);
     }
   </script>
