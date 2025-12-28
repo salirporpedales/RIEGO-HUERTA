@@ -1,71 +1,91 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Riego Smart</title>
+    <title>Panel de Riego Pro</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-bottom: 20px; }
-        h2 { color: #1a73e8; text-align: center; }
-        .relay-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-        input:checked + .slider { background-color: #28a745; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider:before { transform: translateX(26px); }
-        input[type="number"] { width: 60px; padding: 5px; border-radius: 5px; border: 1px solid #ddd; }
-        .btn-stop { background: #dc3545; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .status { font-size: 0.8em; color: #666; text-align: center; margin-top: 5px; }
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary: #2196F3;
+            --waiting: #ff9800; /* Naranja */
+            --active: #4CAF50;  /* Verde */
+            --off: #757575;     /* Gris */
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: var(--card-bg); padding: 25px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); width: 100%; max-width: 450px; margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #333; font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        .relay-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 20px; }
+        
+        .relay-btn {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 20px; border: none; border-radius: 10px;
+            background: var(--off); color: white; font-weight: bold;
+            cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+        }
+
+        /* Clases de estado */
+        .btn-waiting { background-color: var(--waiting) !important; transform: translateY(2px); box-shadow: none; }
+        .btn-active { background-color: var(--active) !important; }
+        
+        input[type="number"] { width: 80px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        .btn-stop { background: #d32f2f; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 1rem; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>⏱️ Configuración</h2>
-        <div class="relay-row">
-            <span>Tiempo de Riego (min):</span>
+        <h2>⏱️ Configuración de Tiempo</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Duración (minutos):</span>
             <input type="number" id="tiempoInput" value="0" onchange="actualizarTiempo(this.value)">
         </div>
     </div>
 
     <div class="card">
-        <h2>💧 Válvulas (Relés)</h2>
-        <div id="relaysContainer"></div>
-        <button class="btn-stop" onclick="emergenciaStop()">🛑 PARADA DE EMERGENCIA</button>
+        <h2>💧 Control de Válvulas</h2>
+        <div class="relay-grid" id="relayContainer"></div>
+        <button class="btn-stop" onclick="emergenciaStop()">🛑 PARADA TOTAL</button>
     </div>
 
     <script>
-        // CONFIGURACIÓN DE TU FIREBASE (Copia esto de tu consola de Firebase)
+        // CONFIGURACIÓN DE FIREBASE
         const firebaseConfig = {
             apiKey: "TU_API_KEY",
-            databaseURL: "TU_DATABASE_URL",
-            projectId: "TU_PROJECT_ID",
+            databaseURL: "TU_URL_DATABASE",
+            projectId: "TU_PROJECT_ID"
         };
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Crear los 7 interruptores dinámicamente
-        const container = document.getElementById('relaysContainer');
+        // Generar botones de relé
+        const container = document.getElementById('relayContainer');
         for (let i = 1; i <= 7; i++) {
             container.innerHTML += `
-                <div class="relay-row">
-                    <span>Relé ${i} <small id="status${i}">(Apagado)</small></span>
-                    <label class="switch">
-                        <input type="checkbox" id="relay${i}" onchange="toggleRelay(${i}, this.checked)">
-                        <span class="slider"></span>
-                    </label>
-                </div>
+                <button id="btnRelay${i}" class="relay-btn" onclick="enviarOrden(${i})">
+                    <span>Válvula ${i}</span>
+                    <span id="label${i}">APAGADO</span>
+                </button>
             `;
         }
 
-        // --- FUNCIONES DE ESCRITURA ---
-        function toggleRelay(id, state) {
-            db.ref('/relay' + id).set(state);
+        // --- LÓGICA DE CONTROL ---
+
+        function enviarOrden(id) {
+            const btn = document.getElementById(`btnRelay${id}`);
+            // 1. Efecto inmediato: Naranja (Enviando...)
+            btn.classList.add('btn-waiting');
+            document.getElementById(`label${id}`).innerText = "ENVIANDO...";
+            
+            // 2. Escribir en Firebase el trigger
+            db.ref('/relay' + id).set(true);
         }
 
         function actualizarTiempo(val) {
@@ -74,194 +94,43 @@
 
         function emergenciaStop() {
             db.ref('/stop').set(true);
-            // El propio NodeMCU debería ponerlo en false tras detener todo, 
-            // pero podemos resetearlo desde aquí tras 2 segundos.
             setTimeout(() => db.ref('/stop').set(false), 2000);
         }
 
-        // --- LECTURA EN TIEMPO REAL (Sincronización) ---
-        // Sincronizar Tiempo
-        db.ref('/tiempo').on('value', (snap) => {
-            document.getElementById('tiempoInput').value = snap.val() || 0;
-        });
+        // --- ESCUCHA DE ESTADOS (Sincronización) ---
 
-        // Sincronizar Relés y Estados de Orden
         for (let i = 1; i <= 7; i++) {
-            db.ref('/relay' + i).on('value', (snap) => {
-                document.getElementById('relay' + i).checked = snap.val();
-            });
-            // Mostrar si el relé está realmente activo según el NodeMCU
+            // Escuchar el nodo /ordenX que maneja el NodeMCU
             db.ref('/orden' + i).on('value', (snap) => {
-                const statusTxt = document.getElementById('status' + i);
-                statusTxt.innerText = snap.val() ? "(REGANDO...)" : "(Apagado)";
-                statusTxt.style.color = snap.val() ? "#28a745" : "#666";
+                const activo = snap.val();
+                const btn = document.getElementById(`btnRelay${i}`);
+                const label = document.getElementById(`label${i}`);
+
+                if (activo) {
+                    // 3. Si el hardware confirma (verde)
+                    btn.classList.remove('btn-waiting');
+                    btn.classList.add('btn-active');
+                    label.innerText = "REGANDO";
+                } else {
+                    // 4. Si el hardware apaga (gris)
+                    btn.classList.remove('btn-waiting', 'btn-active');
+                    label.innerText = "APAGADO";
+                }
+            });
+
+            // Sincronizar si alguien apaga el trigger manualmente o por tiempo
+            db.ref('/relay' + i).on('value', (snap) => {
+                if(snap.val() === false) {
+                    // Si el trigger es false, nos aseguramos de quitar el naranja
+                    document.getElementById(`btnRelay${i}`).classList.remove('btn-waiting');
+                }
             });
         }
+
+        // Sincronizar campo de tiempo
+        db.ref('/tiempo').on('value', snap => {
+            document.getElementById('tiempoInput').value = snap.val() || 0;
+        });
     </script>
 </body>
 </html>
-
-  <h1>SISTEMA DE RIEGO POR SECTORES</h1>
-
-  <!-- Login form -->
-  <div id="loginForm">
-    <input type="email" id="email" placeholder="Enter Email" required />
-    <input type="password" id="password" placeholder="Enter Password" required />
-    <button id="loginBtn">Login</button>
-  </div>
-
-  <!-- Dashboard -->
-  <div id="dashboard">
-      <div class="relay-container">
-          <div class="relay-card">
-              <h2>Relay 1</h2>
-              <p>Status: <span id="status1">Loading...</span></p>
-              <button id="btn1">Cambiar</button>
-          </div>
-
-          <div class="relay-card">
-              <h2>Relay 2</h2>
-              <p>Status: <span id="status2">Loading...</span></p>
-              <button id="btn2">Cambiar</button>
-          </div>
-
-          <div class="relay-card">
-              <h2>Relay 3</h2>
-              <p>Status: <span id="status3">Loading...</span></p>
-              <button id="btn3">Cambiar</button>
-          </div>
-
-          <div class="relay-card">
-              <h2>Relay 4</h2>
-              <p>Status: <span id="status4">Loading...</span></p>
-              <button id="btn4">Cambiar</button>
-          </div>
-          <div class="relay-card">
-              <h2>Relay 5</h2>
-              <p>Status: <span id="status5">Loading...</span></p>
-              <button id="btn5">Cambiar</button>
-          </div>
-          <div class="relay-card">
-              <h2>Relay 6</h2>
-              <p>Status: <span id="status6">Loading...</span></p>
-              <button id="btn6">Cambiar</button>
-          </div>
-          <div class="relay-card">
-              <h2>Relay 7</h2>
-              <p>Status: <span id="status7">Loading...</span></p>
-              <button id="btn7">Cambiar</button>
-          </div>
-          <div class="relay-card">
-              <h2>Relay 8</h2>
-              <p>Status: <span id="status8">Loading...</span></p>
-              <button id="btn8">Cambiar</button>
-          </div>
-      </div>
-
-    <button id="allOffBtn">Stop Riego</button>
-    <button id="logoutBtn">Logout</button>
-  </div>
-
-  <footer>
-    Desarrolado  po JAvI
-  </footer>
-
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-
-  <script>
-    // Firebase config
-    const firebaseConfig = {
-	  apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
-           authDomain: "riego-huerta.firebaseapp.com",
-           databaseURL: "https://riego-huerta-default-rtdb.europe-west1.firebasedatabase.app",
-           projectId: "riego-huerta",
-          storageBucket: "riego-huerta.firebasestorage.app",
-          messagingSenderId: "153931971594",
-          appId: "1:153931971594:web:4c385921df852541c7f3f3"
-	};
-
-    firebase.initializeApp(firebaseConfig);
-
-    const loginForm = document.getElementById("loginForm");
-    const dashboard = document.getElementById("dashboard");
-    const loginBtn = document.getElementById("loginBtn");
-
-    loginBtn.addEventListener("click", () => {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-
-      if (!email || !password) {
-        alert("Please enter email and password.");
-        return;
-      }
-
-      firebase.auth().signInWithEmailAndPassword(email, password)
-        .then(userCredential => {
-          console.log("Signed in as", userCredential.user.email);
-          loginForm.style.display = "none";
-          dashboard.style.display = "block";
-          startRelayControl();
-        })
-        .catch(error => {
-          alert("Login failed: " + error.message);
-        });
-    });
-
-    function startRelayControl() {
-      const db = firebase.database();
-
-      const relays = [
-        { id: 1, path: "relay1" },
-        { id: 2, path: "relay2" },
-        { id: 3, path: "relay3" },
-        { id: 4, path: "relay4" },
-		{ id: 5, path: "relay5" },
-        { id: 6, path: "relay6" },
-        { id: 7, path: "relay7" },
-        { id: 8, path: "relay8" },
-      ];
-
-      relays.forEach(relay => {
-        const statusText = document.getElementById(`status${relay.id}`);
-        const toggleButton = document.getElementById(`btn${relay.id}`);
-        const relayRef = db.ref("/" + relay.path);
-
-        relayRef.on("value", (snapshot) => {
-          const state = snapshot.val();
-          statusText.innerText = state ? "ON" : "OFF";
-          toggleButton.style.backgroundColor = state ? "green" : "blue";
-        });
-
-        toggleButton.onclick = () => {
-          relayRef.get().then(snap => {
-            relayRef.set(!snap.val());
-          });
-        };
-      });
-
-      document.getElementById("allOffBtn").onclick = () => {
-        relays.forEach(relay => {
-          db.ref("/" + relay.path).set(false);
-        });
-      };
-    }
-
-    document.getElementById("logoutBtn").onclick = () => {
-      firebase.auth().signOut()
-        .then(() => {
-          dashboard.style.display = "none";
-          loginForm.style.display = "block";
-          document.getElementById("email").value = "";
-          document.getElementById("password").value = "";
-        })
-        .catch(error => {
-          alert("Logout failed: " + error.message);
-        });
-    };
-  </script>
-</body>
-</html>
-
