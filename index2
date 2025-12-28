@@ -3,99 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Riego Smart</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <title>Huerta Inteligente Pro + Timer</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-bottom: 20px; }
-        h2 { color: #1a73e8; text-align: center; }
-        .relay-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-        input:checked + .slider { background-color: #28a745; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider:before { transform: translateX(26px); }
-        input[type="number"] { width: 60px; padding: 5px; border-radius: 5px; border: 1px solid #ddd; }
-        .btn-stop { background: #dc3545; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .status { font-size: 0.8em; color: #666; text-align: center; margin-top: 5px; }
+        :root { --primary: #2e7d32; --waiting: #ff9800; --active: #4caf50; --off: #78909c; --stop: #c62828; --bg: #f1f8e9; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        #loginForm, #dashboard { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 900px; }
+        #loginForm { max-width: 350px; margin-top: 50px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .btn-logout { background: var(--stop); color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .relay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .card { background: #fafafa; padding: 20px; border-radius: 15px; text-align: center; border: 1px solid #eee; }
+        .btn-relay { width: 100%; padding: 15px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; background: var(--off); transition: 0.3s; font-size: 1.1em; }
+        .status-waiting { background: var(--waiting) !important; animation: blink 1s infinite; }
+        .status-active { background: var(--active) !important; box-shadow: 0 0 15px rgba(76, 175, 80, 0.4); }
+        .timer-display { display: block; font-size: 0.9em; margin-top: 5px; opacity: 0.9; }
+        @keyframes blink { 50% { opacity: 0.6; } }
+        .btn-emergency { background: var(--stop); color: white; border: none; padding: 15px 30px; border-radius: 50px; font-weight: bold; cursor: pointer; margin-top: 30px; width: 100%; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>⏱️ Configuración</h2>
-        <div class="relay-row">
-            <span>Tiempo de Riego (min):</span>
-            <input type="number" id="tiempoInput" value="0" onchange="actualizarTiempo(this.value)">
+    <div id="loginForm">
+        <h2 style="color: var(--primary); text-align:center">Acceso Huerta</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="pass" placeholder="Contraseña">
+        <button onclick="login()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer;">ENTRAR</button>
+    </div>
+
+    <div id="dashboard" style="display:none">
+        <div class="header">
+            <div>
+                <strong>⏱️ Tiempo:</strong>
+                <input type="number" id="tiempo" style="width:60px; margin:0 5px" min="1" value="10"> min
+            </div>
+            <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
         </div>
+        <div class="relay-grid" id="grid"></div>
+        <button class="btn-emergency" onclick="emergencyStop()">🛑 PARADA DE EMERGENCIA TOTAL</button>
     </div>
 
-    <div class="card">
-        <h2>💧 Válvulas (Relés)</h2>
-        <div id="relaysContainer"></div>
-        <button class="btn-stop" onclick="emergenciaStop()">🛑 PARADA DE EMERGENCIA</button>
-    </div>
+     <script>
+        const firebaseConfig = {                                  // 1. CONFIGURACIÓN FIREBASE (Reemplaza con tus datos reales)
+      apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
+      authDomain: "riego-huerta.firebaseapp.com",
+      databaseURL: "https://riego-huerta-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "riego-huerta",
+      appId: "1:153931971594:web:4c385921df852541c7f3f3"
+    };
 
-    <script>
-        // CONFIGURACIÓN DE TU FIREBASE (Copia esto de tu consola de Firebase)
-        const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            databaseURL: "TU_DATABASE_URL",
-            projectId: "TU_PROJECT_ID",
-        };
-        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+        const auth = firebase.auth();
 
-        // Crear los 7 interruptores dinámicamente
-        const container = document.getElementById('relaysContainer');
-        for (let i = 1; i <= 7; i++) {
-            container.innerHTML += `
-                <div class="relay-row">
-                    <span>Relé ${i} <small id="status${i}">(Apagado)</small></span>
-                    <label class="switch">
-                        <input type="checkbox" id="relay${i}" onchange="toggleRelay(${i}, this.checked)">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            `;
+        const sectores = ["Tomates", "Lechugas", "Patatas", "Césped", "Frutales", "Macetas", "Rosales", "válvula"];
+        let activeTimers = {}; // Para guardar los intervalos de cada botón
+
+        function login() {
+            auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('pass').value).catch(e => alert(e.message));
         }
+        function logout() { auth.signOut(); }
 
-        // --- FUNCIONES DE ESCRITURA ---
-        function toggleRelay(id, state) {
-            db.ref('/relay' + id).set(state);
-        }
-
-        function actualizarTiempo(val) {
-            db.ref('/tiempo').set(parseInt(val));
-        }
-
-        function emergenciaStop() {
-            db.ref('/stop').set(true);
-            // El propio NodeMCU debería ponerlo en false tras detener todo, 
-            // pero podemos resetearlo desde aquí tras 2 segundos.
-            setTimeout(() => db.ref('/stop').set(false), 2000);
-        }
-
-        // --- LECTURA EN TIEMPO REAL (Sincronización) ---
-        // Sincronizar Tiempo
-        db.ref('/tiempo').on('value', (snap) => {
-            document.getElementById('tiempoInput').value = snap.val() || 0;
+        auth.onAuthStateChanged(user => {
+            document.getElementById('loginForm').style.display = user ? 'none' : 'block';
+            document.getElementById('dashboard').style.display = user ? 'block' : 'none';
+            if(user) initApp();
         });
 
-        // Sincronizar Relés y Estados de Orden
-        for (let i = 1; i <= 7; i++) {
-            db.ref('/relay' + i).on('value', (snap) => {
-                document.getElementById('relay' + i).checked = snap.val();
+        function initApp() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = "";
+            
+            db.ref('tiempo').on('value', s => document.getElementById('tiempo').value = s.val() || 10);
+            document.getElementById('tiempo').onchange = (e) => db.ref('tiempo').set(parseInt(e.target.value));
+
+            sectores.forEach((nombre, i) => {
+                const id = i + 1;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <h3>${nombre}</h3>
+                    <button class="btn-relay" id="btn${id}" onclick="controlRelay(${id})">
+                        <span id="txt${id}">ACTIVAR</span>
+                        <span id="timer${id}" class="timer-display"></span>
+                    </button>`;
+                grid.appendChild(card);
+
+                // Escuchar estado real (ordenX)
+                db.ref(`orden${id}`).on('value', snap => {
+                    const btn = document.getElementById(`btn${id}`);
+                    const txt = document.getElementById(`txt${id}`);
+                    const timerSpan = document.getElementById(`timer${id}`);
+                    
+                    if (snap.val() === true) {
+                        btn.className = "btn-relay status-active";
+                        txt.innerText = "REGANDO";
+                        startLocalTimer(id, document.getElementById('tiempo').value);
+                    } else {
+                        stopLocalTimer(id);
+                        db.ref(`relay${id}`).once('value', r => {
+                            if(!r.val()) {
+                                btn.className = "btn-relay";
+                                txt.innerText = "ACTIVAR";
+                                timerSpan.innerText = "";
+                            }
+                        });
+                    }
+                });
+
+                // Escuchar petición (relayX) para el estado naranja
+                db.ref(`relay${id}`).on('value', snap => {
+                    const btn = document.getElementById(`btn${id}`);
+                    const txt = document.getElementById(`txt${id}`);
+                    if (snap.val() === true) {
+                        db.ref(`orden${id}`).once('value', o => {
+                            if(!o.val()) {
+                                btn.className = "btn-relay status-waiting";
+                                txt.innerText = "ESPERANDO...";
+                            }
+                        });
+                    }
+                });
             });
-            // Mostrar si el relé está realmente activo según el NodeMCU
-            db.ref('/orden' + i).on('value', (snap) => {
-                const statusTxt = document.getElementById('status' + i);
-                statusTxt.innerText = snap.val() ? "(REGANDO...)" : "(Apagado)";
-                statusTxt.style.color = snap.val() ? "#28a745" : "#666";
-            });
+        }
+
+        function startLocalTimer(id, minutes) {
+            if (activeTimers[id]) return; // Ya hay un timer corriendo
+
+            let seconds = minutes * 60;
+            const timerSpan = document.getElementById(`timer${id}`);
+
+            activeTimers[id] = setInterval(() => {
+                seconds--;
+                if (seconds <= 0) {
+                    stopLocalTimer(id);
+                    timerSpan.innerText = "FINALIZANDO...";
+                } else {
+                    let m = Math.floor(seconds / 60);
+                    let s = seconds % 60;
+                    timerSpan.innerText = `Quedan: ${m}:${s < 10 ? '0' : ''}${s}`;
+                }
+            }, 1000);
+        }
+
+        function stopLocalTimer(id) {
+            if (activeTimers[id]) {
+                clearInterval(activeTimers[id]);
+                delete activeTimers[id];
+            }
+            const timerSpan = document.getElementById(`timer${id}`);
+            if (timerSpan) timerSpan.innerText = "";
+        }
+
+        function controlRelay(id) {
+            const ref = db.ref(`relay${id}`);
+            ref.once('value', snap => ref.set(!snap.val()));
+        }
+
+        function emergencyStop() {
+            if(confirm("🛑 ¿DETENER TODO EL RIEGO?")) {
+                for(let i=1; i<=sectores.length; i++) {
+                    db.ref(`relay${i}`).set(false);
+                    stopLocalTimer(i);
+                }
+                db.ref('stop').set(true);
+                setTimeout(() => db.ref('stop').set(false), 2000);
+            }
         }
     </script>
 </body>
