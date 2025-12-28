@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -7,21 +7,59 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    
     <style>
-        :root { --primary: #2e7d32; --waiting: #ff9800; --active: #4caf50; --off: #78909c; --stop: #c62828; --bg: #f1f8e9; }
+        :root { 
+            --primary: #2e7d32; 
+            --waiting: #ff9800; 
+            --active: #4caf50; 
+            --off: #78909c; 
+            --stop: #c62828; /* Rojo Emergencia/Salir */
+            --bg: #f1f8e9; 
+        }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        #loginForm, #dashboard { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 900px; }
+        
+        /* Contenedores */
+        #loginForm, #dashboard { 
+            background: white; padding: 30px; border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 900px; 
+        }
         #loginForm { max-width: 350px; margin-top: 50px; }
+
         input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        
+        /* Header y Botón Salir */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        
+        .btn-logout { 
+            background: var(--stop); color: white; border: none; 
+            padding: 8px 15px; border-radius: 8px; cursor: pointer; 
+            font-weight: bold; transition: 0.3s;
+        }
+        .btn-logout:hover { background: #b71c1c; }
+
+        /* Grid de Sectores */
         .relay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
         .card { background: #fafafa; padding: 20px; border-radius: 15px; text-align: center; border: 1px solid #eee; }
-        .btn-relay { width: 100%; padding: 15px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; background: var(--off); transition: 0.3s; }
+        
+        .btn-relay { 
+            width: 100%; padding: 15px; border: none; border-radius: 10px; 
+            color: white; font-weight: bold; cursor: pointer; 
+            background: var(--off); transition: 0.3s; 
+        }
+        
+        /* Animaciones de Estado */
         .status-waiting { background: var(--waiting) !important; animation: blink 1s infinite; }
         .status-active { background: var(--active) !important; animation: pulse 2s infinite; }
+        
         @keyframes blink { 50% { opacity: 0.6; } }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-        .btn-emergency { background: var(--stop); color: white; border: none; padding: 15px 30px; border-radius: 50px; font-weight: bold; cursor: pointer; margin-top: 30px; width: 100%; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+        
+        .btn-emergency { 
+            background: var(--stop); color: white; border: none; 
+            padding: 15px 30px; border-radius: 50px; font-weight: bold; 
+            cursor: pointer; margin-top: 30px; width: 100%; 
+        }
     </style>
 </head>
 <body>
@@ -30,22 +68,24 @@
         <h2 style="color: var(--primary); text-align:center">Acceso Huerta</h2>
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="pass" placeholder="Contraseña">
-        <button onclick="login()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer;">ENTRAR</button>
+        <button onclick="login()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">ENTRAR</button>
     </div>
 
     <div id="dashboard" style="display:none">
         <div class="header">
             <div>
                 <strong>⏱️ Tiempo:</strong>
-                <input type="number" id="tiempo" style="width:60px; margin:0 5px" min="1" value="10"> min
+                <input type="number" id="tiempo" style="width:60px; margin:0 5px" min="1"> min
             </div>
-            <button onclick="logout()" style="background:none; border:1px solid #ccc; padding:5px 10px; border-radius:5px; cursor:pointer">Salir</button>
+            <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
         </div>
+
         <div class="relay-grid" id="grid"></div>
+
         <button class="btn-emergency" onclick="emergencyStop()">🛑 PARADA DE EMERGENCIA TOTAL</button>
     </div>
 
-    <script>
+       <script>
         const firebaseConfig = {                                  // 1. CONFIGURACIÓN FIREBASE (Reemplaza con tus datos reales)
       apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
       authDomain: "riego-huerta.firebaseapp.com",
@@ -53,17 +93,28 @@
       projectId: "riego-huerta",
       appId: "1:153931971594:web:4c385921df852541c7f3f3"
     };
+
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const auth = firebase.auth();
 
-        const sectores = ["Tomates", "Lechugas", "Patatas", "Césped", "Frutales", "Macetas", "Rosales"];
+        const nombresSectores = {
+            1: "Tomates",
+            2: "Lechugas",
+            3: "Patatas",
+            4: "Césped",
+            5: "Goteo Frutales",
+            6: "Macetas Patio",
+            7: "Riego de Rosales"
+        };
 
         // Lógica de Autenticación
         function login() {
-            auth.signInWithEmailAndPassword(document.getElementById('email').value, document.getElementById('pass').value)
-                .catch(e => alert(e.message));
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('pass').value;
+            auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Error: " + e.message));
         }
+
         function logout() { auth.signOut(); }
 
         auth.onAuthStateChanged(user => {
@@ -72,62 +123,71 @@
             if(user) initApp();
         });
 
+        // Inicializar aplicación
         function initApp() {
             const grid = document.getElementById('grid');
             grid.innerHTML = "";
             
             // Sincronizar tiempo global
-            db.ref('tiempo').on('value', s => document.getElementById('tiempo').value = s.val() || 10);
-            document.getElementById('tiempo').onchange = (e) => db.ref('tiempo').set(parseInt(e.target.value));
+            db.ref('tiempo').on('value', s => {
+                if(s.exists()) document.getElementById('tiempo').value = s.val();
+            });
 
-            sectores.forEach((nombre, i) => {
-                const id = i + 1;
+            document.getElementById('tiempo').onchange = (e) => {
+                db.ref('tiempo').set(parseInt(e.target.value));
+            };
+
+            // Crear una tarjeta por cada sector
+            Object.keys(nombresSectores).forEach(id => {
+                const nombre = nombresSectores[id];
                 const card = document.createElement('div');
                 card.className = 'card';
-                card.innerHTML = `<h3>${nombre}</h3><button class="btn-relay" id="btn${id}" onclick="controlRelay(${id})">ACTIVAR</button>`;
+                card.innerHTML = `
+                    <h3>${nombre}</h3>
+                    <button class="btn-relay" id="btn${id}" onclick="controlRelay(${id})">ACTIVAR</button>
+                `;
                 grid.appendChild(card);
 
-                // Escuchar estado real (ordenX) para cambiar color
-                db.ref(`orden${id}`).on('value', snap => {
-                    const btn = document.getElementById(`btn${id}`);
-                    if (snap.val() === true) {
-                        btn.className = "btn-relay status-active";
-                        btn.innerText = "REGANDO (APAGAR)";
-                    } else {
-                        // Si no está regando, solo quitamos el naranja si no hay petición pendiente
-                        db.ref(`relay${id}`).once('value', r => {
-                            if(!r.val()) {
-                                btn.className = "btn-relay";
-                                btn.innerText = "ACTIVAR";
-                            }
-                        });
-                    }
+                // Escucha de cambios en la base de datos para los colores
+                db.ref(`relay${id}`).on('value', snapRelay => {
+                    db.ref(`orden${id}`).on('value', snapOrden => {
+                        const btn = document.getElementById(`btn${id}`);
+                        if (!btn) return;
+
+                        const pedido = snapRelay.val(); 
+                        const real = snapOrden.val();   
+
+                        if (real === true) {
+                            btn.className = "btn-relay status-active";
+                            btn.innerText = "REGANDO...";
+                        } else if (pedido === true) {
+                            btn.className = "btn-relay status-waiting";
+                            btn.innerText = "ESPERANDO...";
+                        } else {
+                            btn.className = "btn-relay";
+                            btn.innerText = "ACTIVAR";
+                        }
+                    });
                 });
             });
         }
 
         function controlRelay(id) {
-            const btn = document.getElementById(`btn${id}`);
-            
-            // Si está naranja o verde, el siguiente click APAGA/CANCELA
-            if (btn.classList.contains('status-waiting') || btn.classList.contains('status-active')) {
-                db.ref(`relay${id}`).set(false);
-                btn.className = "btn-relay";
-                btn.innerText = "ACTIVAR";
-            } else {
-                // Si está apagado, ACTIVA
-                btn.className = "btn-relay status-waiting";
-                btn.innerText = "CANCELAR ?";
-                db.ref(`relay${id}`).set(true);
-            }
+            const ref = db.ref(`relay${id}`);
+            ref.once('value', snap => {
+                ref.set(!snap.val()); // Invierte el estado (On/Off)
+            });
         }
 
         function emergencyStop() {
-            for(let i=1; i<=7; i++) db.ref(`relay${i}`).set(false);
-            db.ref('stop').set(true);
-            setTimeout(() => db.ref('stop').set(false), 2000);
+            if(confirm("¿Detener todos los sectores ahora?")) {
+                for(let i=1; i<=7; i++) {
+                    db.ref(`relay${i}`).set(false);
+                }
+                db.ref('stop').set(true);
+                setTimeout(() => db.ref('stop').set(false), 2000);
+            }
         }
     </script>
 </body>
 </html>
-
