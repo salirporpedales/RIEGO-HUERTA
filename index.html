@@ -1,148 +1,105 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>SISTEMA DE RIEGO DE HUERTA</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #f9f9f9;
-      margin: 0;
-      padding: 0 10px 40px;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      justify-content: space-between;
-    }
-    h1 {
-      margin-top: 30px;
-      font-size: 1.8rem;
-    }
-    .relay-card {
-      display: inline-block;
-      background-color: white;
-      padding: 20px;
-      margin: 15px;
-      border-radius: 15px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      width: 220px;
-      vertical-align: top;
-    }
-    .relay-card h2 {
-      margin-bottom: 10px;
-      font-size: 1.3rem;
-    }
-    .relay-card p {
-      margin-bottom: 10px;
-      font-size: 1rem;
-    }
-    .relay-card button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 10px;
-      color: white;
-      background-color: blue;
-      cursor: pointer;
-      font-size: 16px;
-      width: 90%;
-      transition: opacity 0.3s ease;
-    }
-    .relay-card button:hover {
-      opacity: 0.8;
-    }
-    #allOffBtn, #logoutBtn {
-      max-width: 300px;
-      width: 90%;
-      padding: 12px 25px;
-      font-size: 16px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      margin: 15px auto;
-      display: block;
-      color: white;
-      transition: opacity 0.3s ease;
-    }
-    #allOffBtn {
-      background-color: #d32f2f;
-    }
-    #allOffBtn:hover {
-      opacity: 0.8;
-    }
-    #logoutBtn {
-      background-color: #555;
-    }
-    #logoutBtn:hover {
-      opacity: 0.8;
-    }
-
-    #dashboard {
-      display: none;
-    }
-    #loginForm {
-      max-width: 400px;
-      margin: 80px auto 20px;
-      background: white;
-      padding: 30px 20px;
-      border-radius: 15px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    #loginForm input {
-      width: 100%;
-      padding: 12px 15px;
-      margin: 10px 0 20px;
-      font-size: 1rem;
-      border: 1.5px solid #ccc;
-      border-radius: 10px;
-      box-sizing: border-box;
-      outline-offset: 2px;
-      transition: border-color 0.3s ease;
-    }
-    #loginForm input:focus {
-      border-color: #1e88e5;
-    }
-    #loginForm button {
-      width: 100%;
-      background-color: #1e88e5;
-      color: white;
-      padding: 12px;
-      font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-    #loginForm button:hover {
-      background-color: #1565c0;
-    }
-    #dashboard .relay-container {
-      max-width: 960px;
-      margin: 20px auto 0;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    @media (max-width: 700px) {
-      .relay-card {
-        width: 90%;
-        margin: 10px auto;
-        display: block;
-      }
-      body {
-        padding: 0 10px 60px;
-      }
-    }
-    footer {
-      font-size: 0.9rem;
-      color: #666;
-      padding: 10px 0;
-      margin-top: 40px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Riego Smart</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-bottom: 20px; }
+        h2 { color: #1a73e8; text-align: center; }
+        .relay-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        input:checked + .slider { background-color: #28a745; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        input[type="number"] { width: 60px; padding: 5px; border-radius: 5px; border: 1px solid #ddd; }
+        .btn-stop { background: #dc3545; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .status { font-size: 0.8em; color: #666; text-align: center; margin-top: 5px; }
+    </style>
 </head>
 <body>
+
+    <div class="card">
+        <h2>⏱️ Configuración</h2>
+        <div class="relay-row">
+            <span>Tiempo de Riego (min):</span>
+            <input type="number" id="tiempoInput" value="0" onchange="actualizarTiempo(this.value)">
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>💧 Válvulas (Relés)</h2>
+        <div id="relaysContainer"></div>
+        <button class="btn-stop" onclick="emergenciaStop()">🛑 PARADA DE EMERGENCIA</button>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN DE TU FIREBASE (Copia esto de tu consola de Firebase)
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            databaseURL: "TU_DATABASE_URL",
+            projectId: "TU_PROJECT_ID",
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Crear los 7 interruptores dinámicamente
+        const container = document.getElementById('relaysContainer');
+        for (let i = 1; i <= 7; i++) {
+            container.innerHTML += `
+                <div class="relay-row">
+                    <span>Relé ${i} <small id="status${i}">(Apagado)</small></span>
+                    <label class="switch">
+                        <input type="checkbox" id="relay${i}" onchange="toggleRelay(${i}, this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            `;
+        }
+
+        // --- FUNCIONES DE ESCRITURA ---
+        function toggleRelay(id, state) {
+            db.ref('/relay' + id).set(state);
+        }
+
+        function actualizarTiempo(val) {
+            db.ref('/tiempo').set(parseInt(val));
+        }
+
+        function emergenciaStop() {
+            db.ref('/stop').set(true);
+            // El propio NodeMCU debería ponerlo en false tras detener todo, 
+            // pero podemos resetearlo desde aquí tras 2 segundos.
+            setTimeout(() => db.ref('/stop').set(false), 2000);
+        }
+
+        // --- LECTURA EN TIEMPO REAL (Sincronización) ---
+        // Sincronizar Tiempo
+        db.ref('/tiempo').on('value', (snap) => {
+            document.getElementById('tiempoInput').value = snap.val() || 0;
+        });
+
+        // Sincronizar Relés y Estados de Orden
+        for (let i = 1; i <= 7; i++) {
+            db.ref('/relay' + i).on('value', (snap) => {
+                document.getElementById('relay' + i).checked = snap.val();
+            });
+            // Mostrar si el relé está realmente activo según el NodeMCU
+            db.ref('/orden' + i).on('value', (snap) => {
+                const statusTxt = document.getElementById('status' + i);
+                statusTxt.innerText = snap.val() ? "(REGANDO...)" : "(Apagado)";
+                statusTxt.style.color = snap.val() ? "#28a745" : "#666";
+            });
+        }
+    </script>
+</body>
+</html>
 
   <h1>SISTEMA DE RIEGO POR SECTORES</h1>
 
