@@ -19,29 +19,36 @@
             width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; 
         }
 
-        /* Alerta Roja de Error */
+        /* BARRA DE ESTADO MEJORADA */
+        .status-bar {
+            background: #f1f3f4;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            border-left: 5px solid var(--off);
+            transition: 0.3s;
+        }
+        .status-online { border-left-color: var(--active); color: var(--primary); }
+        .status-error { border-left-color: var(--stop); color: var(--stop); background: #fdeded; animation: shake 0.5s infinite; }
+
         #error-banner { 
             display: none; background: #fdeded; color: #d32f2f; padding: 15px; border-radius: 12px; 
             border: 2px solid #d32f2f; margin-bottom: 20px; text-align: center; font-weight: bold;
-            animation: shake 0.5s;
         }
-        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
-        
-        /* Rejilla de Sectores */
         .relay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; }
         .card { background: #f8f9fa; padding: 15px; border-radius: 15px; text-align: center; border: 1px solid #eee; transition: 0.3s; }
-        .card h3 { font-size: 1.1em; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 5px; }
-
-        /* Botones de Sector */
         .btn-relay { width: 100%; padding: 15px; border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer; background: var(--off); transition: 0.4s; font-size: 1em; }
         .status-waiting { background: var(--waiting) !important; animation: blink 1s infinite; }
         .status-active { background: var(--active) !important; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3); }
         .timer-display { display: block; font-size: 0.85em; margin-top: 8px; font-weight: normal; background: rgba(0,0,0,0.1); border-radius: 5px; }
+        
         @keyframes blink { 50% { opacity: 0.7; } }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-3px);} 75% {transform: translateX(3px);} }
 
-        /* Botones Inferiores */
         .footer-btns { display: flex; gap: 10px; margin-top: 25px; }
         .btn-emergency { flex: 2; background: var(--stop); color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 1em; }
         .btn-reset { flex: 1; background: #0288d1; color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; cursor: pointer; }
@@ -50,7 +57,6 @@
 </head>
 <body>
 
-    <!-- LOGIN -->
     <div id="loginForm">
         <h2 style="text-align:center; color: var(--primary)">Riego Inteligente</h2>
         <input type="email" id="email" placeholder="Correo electrónico">
@@ -58,8 +64,12 @@
         <button onclick="login()" style="width:100%; padding:14px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">ENTRAR AL PANEL</button>
     </div>
 
-    <!-- PANEL DE CONTROL -->
     <div id="dashboard" style="display:none">
+        <!-- BARRA DE ESTADO DINÁMICA -->
+        <div id="status-display" class="status-bar">
+            ESTADO: <span id="status-text">CONECTANDO...</span>
+        </div>
+
         <div id="error-banner">
             🚨 FALLO DE FLUJO: BOMBA BLOQUEADA 🚨<br>
             <small>Verifique el suministro de agua y pulse RESET.</small>
@@ -82,7 +92,7 @@
     </div>
 
     <script>
-        // --- 1. CONFIGURACIÓN FIREBASE ---
+        // --- CONFIGURACIÓN FIREBASE (Mantén la tuya) ---
         const firebaseConfig = {
             apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
             authDomain: "riego-huerta.firebaseapp.com",
@@ -95,7 +105,6 @@
         const db = firebase.database();
         const auth = firebase.auth();
 
-        // --- 2. LÓGICA DE USUARIO ---
         function login() {
             const email = document.getElementById('email').value;
             const pass = document.getElementById('pass').value;
@@ -109,7 +118,6 @@
             if(user) initApp();
         });
 
-        // --- 3. INICIALIZACIÓN DEL PANEL ---
         const sectores = ["Sector 1", "Sector 2", "Sector 3", "Sector 4", "Sector 5", "Sector 6", "Sector 7", "Sector 8"];
         let activeTimers = {};
 
@@ -117,16 +125,26 @@
             const grid = document.getElementById('grid');
             grid.innerHTML = "";
             
-            // Sincronizar Tiempo Global
+            // --- NUEVO: MONITOR DE ESTADO ---
+            db.ref('status').on('value', snap => {
+                const status = snap.val() || "DESCONOCIDO";
+                const display = document.getElementById('status-display');
+                const text = document.getElementById('status-text');
+                text.innerText = status;
+                
+                // Cambiar color según estado
+                display.className = "status-bar";
+                if(status === "ESPERANDO" || status === "REGANDO") display.classList.add("status-online");
+                if(status === "ERROR DE FLUJO") display.classList.add("status-error");
+            });
+
             db.ref('tiempo').on('value', s => document.getElementById('tiempo').value = s.val() || 10);
             document.getElementById('tiempo').onchange = (e) => db.ref('tiempo').set(parseInt(e.target.value));
 
-            // Escuchar Alerta de Error
             db.ref('error_flujo').on('value', snap => {
                 document.getElementById('error-banner').style.display = snap.val() ? 'block' : 'none';
             });
 
-            // Crear Botones
             sectores.forEach((nombre, i) => {
                 const id = i + 1;
                 const card = document.createElement('div');
@@ -139,7 +157,6 @@
                     </button>`;
                 grid.appendChild(card);
 
-                // Escuchar cambios de estado
                 db.ref(`relay${id}`).on('value', () => actualizarUI(id));
                 db.ref(`orden${id}`).on('value', () => actualizarUI(id));
             });
@@ -152,19 +169,19 @@
             
             db.ref(`relay${id}`).once('value', rSnap => {
                 db.ref(`orden${id}`).once('value', oSnap => {
-                    const r = rSnap.val(); // Intención
-                    const o = oSnap.val(); // Realidad del NodeMCU
+                    const r = rSnap.val();
+                    const o = oSnap.val();
 
-                    if (r && o) { // VERDE
+                    if (r && o) {
                         btn.className = "btn-relay status-active";
                         txt.innerText = "REGANDO";
                         timerSpan.style.display = "block";
                         startTimer(id);
-                    } else if (r && !o) { // NARANJA
+                    } else if (r && !o) {
                         btn.className = "btn-relay status-waiting";
-                        txt.innerText = "CONECTANDO...";
+                        txt.innerText = "ABRIENDO...";
                         timerSpan.style.display = "none";
-                    } else { // GRIS
+                    } else {
                         btn.className = "btn-relay";
                         txt.innerText = "ACTIVAR";
                         timerSpan.style.display = "none";
@@ -174,7 +191,6 @@
             });
         }
 
-        // --- 4. FUNCIONES DE CONTROL ---
         function controlRelay(id) {
             db.ref('error_flujo').once('value', e => {
                 if(e.val()) { alert("⚠️ Sistema bloqueado por falta de flujo."); return; }
@@ -208,7 +224,7 @@
         function resetSystem() {
             if(confirm("¿Desea rearmar el sistema y limpiar el error?")) {
                 db.ref('reset_error').set(true);
-                setTimeout(() => db.ref('reset_error').set(false), 1500);
+                setTimeout(() => db.ref('reset_error').set(false), 2000);
             }
         }
 
@@ -216,7 +232,7 @@
             if(confirm("🚨 ¿APAGAR TODO INMEDIATAMENTE?")) {
                 for(let i=1; i<=8; i++) db.ref(`relay${i}`).set(false);
                 db.ref('stop').set(true);
-                setTimeout(() => db.ref('stop').set(false), 1000);
+                setTimeout(() => db.ref('stop').set(false), 1500);
             }
         }
     </script>
