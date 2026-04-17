@@ -21,7 +21,7 @@
         }
 
         body { 
-            font-family: 'Segoe UI', sans-serif; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background: var(--bg); 
             display: flex; 
             flex-direction: column; 
@@ -52,6 +52,7 @@
             text-align: center;
             font-weight: bold;
             border-bottom: 4px solid var(--off);
+            transition: 0.3s;
         }
         .status-online { border-bottom-color: var(--active); color: var(--primary); }
         .status-error { border-bottom-color: var(--stop); color: var(--stop); background: #fdeded; animation: shake 0.5s infinite; }
@@ -69,8 +70,15 @@
         .pump-active { background: #e8f5e9; color: var(--active); border: 2px solid var(--active); animation: pulse 2s infinite; }
 
         #error-banner { 
-            display: none; background: var(--stop); color: white; padding: 15px; border-radius: 12px; 
-            margin-bottom: 15px; text-align: center; font-weight: bold;
+            display: none; 
+            background: var(--stop); 
+            color: white; 
+            padding: 15px; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            text-align: center; 
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(211, 47, 47, 0.4);
         }
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
@@ -85,7 +93,7 @@
         .status-waiting { background: var(--waiting) !important; color: #333; }
         .status-active { background: var(--active) !important; box-shadow: 0 4px 12px rgba(76,175,80,0.4); }
         
-        .timer-display { display: block; font-size: 0.8em; margin-top: 8px; color: #555; background: rgba(0,0,0,0.05); border-radius: 4px; }
+        .timer-display { display: block; font-size: 0.8em; margin-top: 8px; color: #555; background: rgba(0,0,0,0.1); border-radius: 4px; }
 
         .footer-btns { display: flex; gap: 10px; margin-top: 25px; }
         .btn-emergency { flex: 2; background: var(--stop); color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; cursor: pointer; }
@@ -99,10 +107,10 @@
 
     <div id="loginForm">
         <h2>🌿 Riego Huerta</h2>
-        <p>Acceso restringido</p>
-        <input type="email" id="email" placeholder="Correo">
+        <p>Introduce tus credenciales</p>
+        <input type="email" id="email" placeholder="Correo electrónico">
         <input type="password" id="pass" placeholder="Contraseña">
-        <button onclick="login()" style="width:100%; padding:14px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer;">ENTRAR</button>
+        <button onclick="login()" style="width:100%; padding:14px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">ENTRAR</button>
     </div>
 
     <div id="dashboard" style="display:none">
@@ -112,33 +120,33 @@
         </div>
 
         <div id="error-banner">
-            🚨 BOMBA BLOQUEADA: FALLO DE FLUJO 🚨<br>
-            <small>Verifica el agua y presiona REARMAR.</small>
+            🚨 BOMBA BLOQUEADA: SIN FLUJO DETECTADO 🚨<br>
+            <small>Por seguridad, los sectores se han desactivado.</small>
         </div>
 
         <div class="sensor-grid">
             <div id="pump-status" class="sensor-tile">BOMBA: OFF</div>
-            <div id="pipe-status" class="sensor-tile">TUBERÍA (XKC): --</div>
+            <div id="pipe-status" class="sensor-tile">AGUA EN TUBO: --</div>
         </div>
 
         <div class="header">
             <div>
-                <strong>⏱️ Tiempo:</strong>
-                <input type="number" id="tiempo" style="width:60px;" min="1"> min
+                <strong>⏱️ Tiempo Riego:</strong>
+                <input type="number" id="tiempo" style="width:60px; font-weight:bold; text-align:center;" min="1"> min
             </div>
-            <button onclick="logout()" style="background:#607d8b; color:white; border:none; padding:8px 12px; border-radius:8px;">Cerrar</button>
+            <button onclick="logout()" style="background:#607d8b; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer;">Cerrar Sesión</button>
         </div>
 
         <div class="relay-grid" id="grid"></div>
 
         <div class="footer-btns">
-            <button class="btn-emergency" onclick="emergencyStop()">🛑 PARADA TOTAL</button>
-            <button class="btn-reset" onclick="resetSystem()">🔄 REARMAR</button>
+            <button class="btn-emergency" onclick="emergencyStop()">🛑 PARADA DE EMERGENCIA</button>
+            <button class="btn-reset" onclick="resetSystem()">🔄 REARMAR SISTEMA</button>
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN FIREBASE (Mantén tus datos aquí)
+        // CONFIGURACIÓN FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
             authDomain: "riego-huerta.firebaseapp.com",
@@ -155,7 +163,7 @@
         function login() {
             const email = document.getElementById('email').value;
             const pass = document.getElementById('pass').value;
-            auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Error: " + e.message));
+            auth.signInWithEmailAndPassword(email, pass).catch(e => alert("Error de acceso: " + e.message));
         }
         function logout() { auth.signOut(); }
 
@@ -172,7 +180,7 @@
             const grid = document.getElementById('grid');
             grid.innerHTML = "";
             
-            // Monitor de Texto de Estado
+            // Monitor de Texto de Estado General
             db.ref('status').on('value', snap => {
                 const s = snap.val() || "LISTO";
                 document.getElementById('status-text').innerText = s;
@@ -183,43 +191,48 @@
             db.ref('relay8').on('value', snap => {
                 const isOn = snap.val();
                 const tile = document.getElementById('pump-status');
-                tile.innerText = isOn ? "BOMBA: ON" : "BOMBA: OFF";
+                tile.innerText = isOn ? "BOMBA: ACTIVADA" : "BOMBA: OFF";
                 tile.className = isOn ? "sensor-tile pump-active" : "sensor-tile";
-                // Refrescar botones para ver si pasan de "PREPARANDO" a "REGANDO"
+                // Refrescar todos los sectores cuando la bomba cambia
                 for(let i=1; i<=7; i++) refreshUI(i, isOn);
             });
 
-            // Sensor XKC (Feedback del Nano)
+            // Monitor de Sensor XKC
             db.ref('hay_agua').on('value', snap => {
                 const hay = snap.val();
                 const tile = document.getElementById('pipe-status');
                 tile.innerText = hay ? "AGUA: OK" : "AGUA: VACÍO";
-                tile.style.color = hay ? "green" : "red";
+                tile.style.color = hay ? "#2e7d32" : "#c62828";
             });
 
-            // Tiempo Global
+            // Sincronizar tiempo de riego
             db.ref('tiempo').on('value', s => document.getElementById('tiempo').value = s.val() || 10);
             document.getElementById('tiempo').onchange = (e) => db.ref('tiempo').set(parseInt(e.target.value));
 
-            // Banner de Error de Flujo
+            // Monitor de Banner de Error
             db.ref('error_flujo').on('value', snap => {
-                document.getElementById('error-banner').style.display = snap.val() ? 'block' : 'none';
+                const enError = snap.val();
+                document.getElementById('error-banner').style.display = enError ? 'block' : 'none';
+                if(enError) { 
+                    // Si hay error, detenemos timers locales por si acaso
+                    for(let i=1; i<=7; i++) stopTimer(i);
+                }
             });
 
-            // Dibujar tarjetas de sectores
+            // Generar tarjetas de sectores
             sectores.forEach((nombre, i) => {
                 const id = i + 1;
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
-                    <h3 style="margin-bottom:10px;">${nombre}</h3>
+                    <h3 style="margin:0 0 10px 0; font-size: 1.1em;">${nombre}</h3>
                     <button class="btn-relay" id="btn${id}" onclick="controlRelay(${id})">
                         <span id="txt${id}">ACTIVAR</span>
                         <span id="timer${id}" class="timer-display" style="display:none">00:00</span>
                     </button>`;
                 grid.appendChild(card);
 
-                // Escuchar cambios individuales de cada relé
+                // Escuchar cambios de cada relé
                 db.ref(`relay${id}`).on('value', rSnap => {
                     db.ref('relay8').once('value', pSnap => refreshUI(id, pSnap.val()));
                 });
@@ -243,10 +256,12 @@
                         startTimer(id);
                     } else {
                         btn.className = "btn-relay status-waiting";
-                        txt.innerText = "PREPARANDO...";
+                        txt.innerText = "CONECTANDO...";
                         timerSpan.style.display = "none";
+                        stopTimer(id);
                     }
                 } else {
+                    // RESET VISUAL: Aquí vuelven los botones cuando el NodeMCU limpia el error
                     btn.className = "btn-relay";
                     txt.innerText = "ACTIVAR";
                     timerSpan.style.display = "none";
@@ -258,7 +273,7 @@
         function controlRelay(id) {
             db.ref('error_flujo').once('value', snap => {
                 if(snap.val()) {
-                    alert("⚠️ Sistema bloqueado. Debe REARMAR para continuar.");
+                    alert("⚠️ SISTEMA BLOQUEADO. Pulsa REARMAR para limpiar el error de flujo.");
                     return;
                 }
                 const ref = db.ref(`relay${id}`);
@@ -290,17 +305,17 @@
         }
 
         function resetSystem() {
-            if(confirm("¿Desea rearmar el sistema? Se limpiarán los errores.")) {
+            if(confirm("¿Deseas desbloquear el sistema y limpiar errores?")) {
                 db.ref('reset_error').set(true);
-                // El NodeMCU se encarga de limpiar error_flujo y relay1..7
-                alert("Orden de rearme enviada.");
+                // El NodeMCU al recibir esto pondrá error_flujo en false y relay1..7 en false
+                alert("Rearme enviado. Verificando periféricos...");
             }
         }
 
         function emergencyStop() {
-            if(confirm("🚨 ¿DETENER TODO EL SISTEMA?")) {
+            if(confirm("🚨 ¿APAGAR TODO INMEDIATAMENTE?")) {
                 for(let i=1; i<=7; i++) db.ref(`relay${i}`).set(false);
-                db.ref('status').set("PARADA TOTAL");
+                db.ref('status').set("PARADA MANUAL");
             }
         }
     </script>
