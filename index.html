@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -123,7 +124,7 @@
         <div class="header">
             <div>
                 <strong>⏱️ Tiempo:</strong>
-                <input type="number" id="tiempo" style="width:60px;" min="1" value="10"> min
+                <input type="number" id="tiempo" style="width:60px;" min="1"> min
             </div>
             <button onclick="logout()" style="background:#607d8b; color:white; border:none; padding:8px 12px; border-radius:8px;">Cerrar</button>
         </div>
@@ -137,7 +138,7 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN FIREBASE
+        // CONFIGURACIÓN FIREBASE (Mantén tus datos aquí)
         const firebaseConfig = {
             apiKey: "AIzaSyD2QRDQ-QoxZ8GwgEonC0gQJ6CU6BG-Th4",
             authDomain: "riego-huerta.firebaseapp.com",
@@ -150,6 +151,7 @@
         const db = firebase.database();
         const auth = firebase.auth();
 
+        // Autenticación
         function login() {
             const email = document.getElementById('email').value;
             const pass = document.getElementById('pass').value;
@@ -163,7 +165,6 @@
             if(user) initApp();
         });
 
-        // Nombres de los sectores
         const sectores = ["Sector 1", "Sector 2", "Sector 3", "Sector 4", "Sector 5", "Sector 6", "Sector 7"];
         let activeTimers = {};
 
@@ -171,35 +172,41 @@
             const grid = document.getElementById('grid');
             grid.innerHTML = "";
             
-            // Monitor de Estado y Sensores
+            // Monitor de Texto de Estado
             db.ref('status').on('value', snap => {
-                const s = snap.val() || "OK";
+                const s = snap.val() || "LISTO";
                 document.getElementById('status-text').innerText = s;
                 document.getElementById('status-display').className = (s.includes("ERROR")) ? "status-bar status-error" : "status-bar status-online";
             });
 
+            // Monitor de Bomba (Relay 8)
             db.ref('relay8').on('value', snap => {
                 const isOn = snap.val();
                 const tile = document.getElementById('pump-status');
                 tile.innerText = isOn ? "BOMBA: ON" : "BOMBA: OFF";
                 tile.className = isOn ? "sensor-tile pump-active" : "sensor-tile";
+                // Refrescar botones para ver si pasan de "PREPARANDO" a "REGANDO"
+                for(let i=1; i<=7; i++) refreshUI(i, isOn);
             });
 
+            // Sensor XKC (Feedback del Nano)
             db.ref('hay_agua').on('value', snap => {
                 const hay = snap.val();
                 const tile = document.getElementById('pipe-status');
-                tile.innerText = hay ? "AGUA: OK" : "AGUA: AIRE";
+                tile.innerText = hay ? "AGUA: OK" : "AGUA: VACÍO";
                 tile.style.color = hay ? "green" : "red";
             });
 
+            // Tiempo Global
             db.ref('tiempo').on('value', s => document.getElementById('tiempo').value = s.val() || 10);
             document.getElementById('tiempo').onchange = (e) => db.ref('tiempo').set(parseInt(e.target.value));
 
+            // Banner de Error de Flujo
             db.ref('error_flujo').on('value', snap => {
                 document.getElementById('error-banner').style.display = snap.val() ? 'block' : 'none';
             });
 
-            // Crear botones
+            // Dibujar tarjetas de sectores
             sectores.forEach((nombre, i) => {
                 const id = i + 1;
                 const card = document.createElement('div');
@@ -212,45 +219,50 @@
                     </button>`;
                 grid.appendChild(card);
 
-                db.ref(`relay${id}`).on('value', () => actualizarUI(id));
-                db.ref(`orden${id}`).on('value', () => actualizarUI(id));
-            });
-        }
-
-        function actualizarUI(id) {
-            const btn = document.getElementById(`btn${id}`);
-            const txt = document.getElementById(`txt${id}`);
-            const timerSpan = document.getElementById(`timer${id}`);
-            
-            db.ref(`relay${id}`).once('value', rSnap => {
-                db.ref(`orden${id}`).once('value', oSnap => {
-                    const relay = rSnap.val();
-                    const orden = oSnap.val();
-
-                    if (relay && orden) {
-                        btn.className = "btn-relay status-active";
-                        txt.innerText = "REGANDO";
-                        timerSpan.style.display = "block";
-                        startTimer(id);
-                    } else if (relay && !orden) {
-                        btn.className = "btn-relay status-waiting";
-                        txt.innerText = "ABRIENDO...";
-                        timerSpan.style.display = "none";
-                    } else {
-                        btn.className = "btn-relay";
-                        txt.innerText = "ACTIVAR";
-                        timerSpan.style.display = "none";
-                        stopTimer(id);
-                    }
+                // Escuchar cambios individuales de cada relé
+                db.ref(`relay${id}`).on('value', rSnap => {
+                    db.ref('relay8').once('value', pSnap => refreshUI(id, pSnap.val()));
                 });
             });
         }
 
+        function refreshUI(id, bombaOn) {
+            const btn = document.getElementById(`btn${id}`);
+            const txt = document.getElementById(`txt${id}`);
+            const timerSpan = document.getElementById(`timer${id}`);
+            if(!btn) return;
+
+            db.ref(`relay${id}`).once('value', snap => {
+                const relayOn = snap.val();
+
+                if (relayOn) {
+                    if (bombaOn) {
+                        btn.className = "btn-relay status-active";
+                        txt.innerText = "REGANDO";
+                        timerSpan.style.display = "block";
+                        startTimer(id);
+                    } else {
+                        btn.className = "btn-relay status-waiting";
+                        txt.innerText = "PREPARANDO...";
+                        timerSpan.style.display = "none";
+                    }
+                } else {
+                    btn.className = "btn-relay";
+                    txt.innerText = "ACTIVAR";
+                    timerSpan.style.display = "none";
+                    stopTimer(id);
+                }
+            });
+        }
+
         function controlRelay(id) {
-            db.ref('error_flujo').once('value', e => {
-                if(e.val()) { alert("Sistema bloqueado por error de flujo."); return; }
+            db.ref('error_flujo').once('value', snap => {
+                if(snap.val()) {
+                    alert("⚠️ Sistema bloqueado. Debe REARMAR para continuar.");
+                    return;
+                }
                 const ref = db.ref(`relay${id}`);
-                ref.once('value', snap => ref.set(!snap.val()));
+                ref.once('value', s => ref.set(!s.val()));
             });
         }
 
@@ -260,8 +272,9 @@
             activeTimers[id] = setInterval(() => {
                 totalSecs--;
                 const span = document.getElementById(`timer${id}`);
-                if (totalSecs <= 0 || !span) stopTimer(id);
-                else {
+                if (totalSecs <= 0 || !span) {
+                    stopTimer(id);
+                } else {
                     let m = Math.floor(totalSecs / 60);
                     let s = totalSecs % 60;
                     span.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -269,20 +282,25 @@
             }, 1000);
         }
 
-        function stopTimer(id) { clearInterval(activeTimers[id]); delete activeTimers[id]; }
+        function stopTimer(id) { 
+            clearInterval(activeTimers[id]); 
+            delete activeTimers[id]; 
+            const span = document.getElementById(`timer${id}`);
+            if(span) span.innerText = "00:00";
+        }
 
         function resetSystem() {
-            if(confirm("¿Rearmar sistema?")) {
+            if(confirm("¿Desea rearmar el sistema? Se limpiarán los errores.")) {
                 db.ref('reset_error').set(true);
-                setTimeout(() => db.ref('reset_error').set(false), 2000);
+                // El NodeMCU se encarga de limpiar error_flujo y relay1..7
+                alert("Orden de rearme enviada.");
             }
         }
 
         function emergencyStop() {
-            if(confirm("🚨 ¿PARAR TODO?")) {
+            if(confirm("🚨 ¿DETENER TODO EL SISTEMA?")) {
                 for(let i=1; i<=7; i++) db.ref(`relay${i}`).set(false);
-                db.ref('stop').set(true);
-                setTimeout(() => db.ref('stop').set(false), 1500);
+                db.ref('status').set("PARADA TOTAL");
             }
         }
     </script>
